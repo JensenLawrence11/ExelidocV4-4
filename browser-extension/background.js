@@ -28,7 +28,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           "Content-Type": "application/json",
           "X-Api-Key": key,
         },
-        body: JSON.stringify({ text: message.text }),
+        body: JSON.stringify({
+          text: message.text,
+          instruction: message.instruction,
+        }),
       })
         .then(async (res) => {
           if (res.status === 401) return sendResponse({ ok: false, error: "invalid_api_key" });
