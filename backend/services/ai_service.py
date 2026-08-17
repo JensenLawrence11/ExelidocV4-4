@@ -1,23 +1,47 @@
 """
 All actual AI-provider calls live here, isolated from the Flask route layer.
-Swap providers or add fallback logic in one place without touching routes/ai.py.
+Currently using OpenRouter (OpenAI-compatible chat completions endpoint) via
+a direct REST call -- no SDK dependency.
 """
 import json
 import re
 
-from anthropic import Anthropic
+import requests
 from config import Config
 
-_client = None
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
-def _get_client():
-    global _client
-    if _client is None:
-        if not Config.ANTHROPIC_API_KEY:
-            return None
-        _client = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
-    return _client
+def _call_openrouter(system_prompt: str, user_content: str) -> str | None:
+    """Returns the raw text response, or None if no key is configured."""
+    if not Config.OPENROUTER_API_KEY:
+        return None
+
+    headers = {
+        "Authorization": f"Bearer {Config.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    if Config.OPENROUTER_SITE_URL:
+        headers["HTTP-Referer"] = Config.OPENROUTER_SITE_URL
+    if Config.OPENROUTER_SITE_NAME:
+        headers["X-Title"] = Config.OPENROUTER_SITE_NAME
+
+    response = requests.post(
+        OPENROUTER_API_URL,
+        headers=headers,
+        json={
+            "model": Config.OPENROUTER_MODEL,
+            "temperature": 0,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+    data = response.json()
+    return data["choices"][0]["message"]["content"]
 
 
 def _extract_json(raw: str):
@@ -43,27 +67,16 @@ TEXT_SYSTEM_PROMPT = (
 
 
 def analyze_text(text: str) -> dict:
-    client = _get_client()
-    if client is None:
-        # No key configured yet -- dummy passthrough so the frontend can be built now.
-        return {"corrected": text, "suggestions": []}
-
     try:
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=2048,
-            temperature=0,
-            system=TEXT_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": text}],
-        )
-        raw = "".join(block.text for block in response.content if block.type == "text")
+        raw = _call_openrouter(TEXT_SYSTEM_PROMPT, text)
+        if raw is None:
+            return {"corrected": text, "suggestions": []}
         parsed = _extract_json(raw)
         return {
             "corrected": parsed.get("corrected", text),
             "suggestions": parsed.get("suggestions", []),
         }
     except Exception as e:
-        # Fail safe: never corrupt the user's text if the AI call or parsing breaks.
         print(f"analyze_text error: {e}")
         return {"corrected": text, "suggestions": []}
 
@@ -94,19 +107,6 @@ def _is_formula_or_number(cell) -> bool:
 
 
 def analyze_spreadsheet_range(values: list) -> dict:
-    """
-    Only text-looking cells are sent to the AI -- formulas and numbers pass
-    through completely untouched. This is a deliberate safety choice: letting
-    the AI guess at a formula or a number and auto-applying it is far riskier
-    than a text label, since spreadsheet errors compound silently across
-    dependent cells. If you want AI help on formulas/numbers later, build
-    that as a separate, non-auto-apply, user-reviewed feature.
-    """
-    client = _get_client()
-    if client is None:
-        return {"correctedValues": values, "notes": []}
-
-    # Flatten, remembering each editable cell's (row, col) position.
     positions = []
     editable_cells = []
     for r, row in enumerate(values):
@@ -119,20 +119,15 @@ def analyze_spreadsheet_range(values: list) -> dict:
         return {"correctedValues": values, "notes": []}
 
     try:
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=2048,
-            temperature=0,
-            system=RANGE_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": json.dumps(editable_cells)}],
-        )
-        raw = "".join(block.text for block in response.content if block.type == "text")
+        raw = _call_openrouter(RANGE_SYSTEM_PROMPT, json.dumps(editable_cells))
+        if raw is None:
+            return {"correctedValues": values, "notes": []}
+
         parsed = _extract_json(raw)
         corrected = parsed.get("corrected", editable_cells)
         notes = parsed.get("notes", [])
 
         if len(corrected) != len(editable_cells):
-            # Model didn't follow the shape contract -- don't risk misaligned writes.
             return {"correctedValues": values, "notes": []}
 
         result = [row[:] for row in values]

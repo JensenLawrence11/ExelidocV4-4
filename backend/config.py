@@ -17,10 +17,16 @@ class Config:
     # (your task pane's localhost during dev, your extension's chrome-extension:// id in prod, etc.)
     FRONTEND_ORIGINS = os.environ.get("FRONTEND_ORIGINS", "*").split(",")
 
-    ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-    MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY")
-    MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
+    OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+    # "openrouter/free" is OpenRouter's own auto-router -- it always points
+    # at whatever free model is currently working, so your app doesn't
+    # break when OpenRouter rotates/delists individual free models (this
+    # happens often -- see note below). Override with a specific model ID
+    # if you want to pin one, e.g. "nvidia/llama-3.1-nemotron-70b-instruct:free"
+    OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/free")
+    # Optional -- attributes your usage on OpenRouter's rankings, doesn't affect function
+    OPENROUTER_SITE_URL = os.environ.get("OPENROUTER_SITE_URL", "")
+    OPENROUTER_SITE_NAME = os.environ.get("OPENROUTER_SITE_NAME", "")
 
     STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY")
     STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY")
