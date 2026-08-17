@@ -42,15 +42,16 @@ def analyze_text_route():
     """
     Used by: Gmail/Google Docs content scripts, Word/Outlook task pane.
     Header: X-Api-Key: <user's key>
-    Body: { "text": "..." }
+    Body: { "text": "...", "instruction": "..." }  -- instruction optional
     Returns: { "corrected": "...", "suggestions": [ ... ] }
     """
     data = request.get_json(silent=True) or {}
     text = data.get("text", "")
+    instruction = data.get("instruction")
     if not text.strip():
         return jsonify(error="No text provided"), 400
 
-    result = analyze_text(text)
+    result = analyze_text(text, instruction)
     try:
         log_ai_usage(g.user["id"], "analyze-text")
     except Exception as e:

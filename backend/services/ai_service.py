@@ -55,10 +55,12 @@ def _extract_json(raw: str):
 # ---------------------------------------------------------------------------
 
 TEXT_SYSTEM_PROMPT = (
-    "You are a grammar and clarity editor, similar to Grammarly. Given a piece of text, "
-    "fix grammar, spelling, punctuation, and awkward phrasing. Preserve the author's "
-    "meaning, tone, and formatting (line breaks, etc). Do not add or remove content "
-    "beyond what's needed for correctness and clarity.\n\n"
+    "You are a writing assistant, similar to Grammarly. You will be given a piece "
+    "of text and an instruction describing what change to make to it. Apply the "
+    "instruction to the text. Preserve the author's meaning and formatting (line "
+    "breaks, etc) except where the instruction asks you to change them. If no "
+    "instruction is given, default to fixing grammar, spelling, punctuation, and "
+    "awkward phrasing without changing meaning or tone.\n\n"
     "Respond with ONLY valid JSON, no other text, in this exact shape:\n"
     '{"corrected": "<the full corrected text>", '
     '"suggestions": [{"original": "<snippet>", "revised": "<snippet>", "reason": "<short reason>"}]}\n\n'
@@ -66,9 +68,14 @@ TEXT_SYSTEM_PROMPT = (
 )
 
 
-def analyze_text(text: str) -> dict:
+def analyze_text(text: str, instruction: str | None = None) -> dict:
     try:
-        raw = _call_openrouter(TEXT_SYSTEM_PROMPT, text)
+        user_content = (
+            f"Instruction: {instruction}\n\nText:\n{text}"
+            if instruction
+            else text
+        )
+        raw = _call_openrouter(TEXT_SYSTEM_PROMPT, user_content)
         if raw is None:
             return {"corrected": text, "suggestions": []}
         parsed = _extract_json(raw)

@@ -69,10 +69,11 @@ function createExelidocPanel() {
   const statusEl = panel.querySelector(".exelidoc-status");
 
   submitEl.addEventListener("click", () => {
+    console.log("Exelidoc: Ask clicked", { activeBox, query: queryEl.value });
     if (!activeBox) return;
     const instruction = queryEl.value.trim();
     const text = activeBox.innerText;
-    if (!instruction || !text.trim()) return;
+    if (!instruction || !text.trim()) { console.log("Exelidoc: empty instruction or text", { instruction, text }); return; }
 
     statusEl.textContent = "Thinking...";
     submitEl.disabled = true;
