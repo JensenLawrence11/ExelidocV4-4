@@ -21,21 +21,16 @@ function attachToComposeBox(box) {
 
     try {
       chrome.runtime.sendMessage({ type: "ANALYZE_TEXT", text }, (response) => {
-        // This callback fires asynchronously, on its own call stack -- the
-        // outer try/catch below does NOT protect code in here. If the
-        // extension context was invalidated between sendMessage() being
-        // called and this callback actually firing, accessing
-        // chrome.runtime.lastError itself can throw, so this needs its own
-        // try/catch.
         try {
           if (chrome.runtime.lastError) {
             console.error("Exelidoc: message failed --", chrome.runtime.lastError.message);
             return;
           }
           if (response && response.ok) {
-            // TODO: auto-apply -- replace box.innerText with response.data.corrected,
-            // being careful to preserve cursor position and not fight the user
-            // while they're actively typing.
+            const corrected = response.data.corrected;
+            if (corrected && corrected !== text && box.innerText === text) {
+              box.innerText = corrected;
+            }
             console.log("Exelidoc suggestion:", response.data);
           } else {
             console.error("Exelidoc: request failed --", response ? response.error : "no response");
@@ -45,8 +40,6 @@ function attachToComposeBox(box) {
         }
       });
     } catch (err) {
-      // Covers the case where sendMessage() itself throws synchronously
-      // (context already invalidated at call time).
       console.warn("Exelidoc: extension was reloaded -- refresh this page to keep using Exelidoc.");
     }
   });

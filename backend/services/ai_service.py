@@ -51,7 +51,7 @@ def _extract_json(raw: str):
 
 
 # ---------------------------------------------------------------------------
-# Free text (Gmail, Google Docs, Word, Outlook)
+# Free text correction (Gmail, Google Docs, Word, Outlook)
 # ---------------------------------------------------------------------------
 
 TEXT_SYSTEM_PROMPT = (
@@ -79,6 +79,34 @@ def analyze_text(text: str) -> dict:
     except Exception as e:
         print(f"analyze_text error: {e}")
         return {"corrected": text, "suggestions": []}
+
+
+# ---------------------------------------------------------------------------
+# Text generation (new -- "write me a paragraph/email about X")
+# ---------------------------------------------------------------------------
+
+GENERATE_SYSTEM_PROMPT = (
+    "You write clear, well-structured text on request -- emails, paragraphs, short "
+    "documents, social posts, whatever is asked for. Match the tone, length, and "
+    "format implied by the request (e.g. 'a short email' should look like an email, "
+    "with a greeting and sign-off if appropriate). Write ONLY the requested content "
+    "itself -- no preamble like 'Here's your email:', no explanation afterward, no "
+    "quotation marks wrapping the output.\n\n"
+    "Respond with ONLY valid JSON, no other text, in this exact shape:\n"
+    '{"generated": "<the generated text>"}'
+)
+
+
+def generate_text(prompt: str) -> dict:
+    try:
+        raw = _call_openrouter(GENERATE_SYSTEM_PROMPT, prompt)
+        if raw is None:
+            return {"generated": "", "error": "AI provider not configured"}
+        parsed = _extract_json(raw)
+        return {"generated": parsed.get("generated", "")}
+    except Exception as e:
+        print(f"generate_text error: {e}")
+        return {"generated": "", "error": "Generation failed, try again"}
 
 
 # ---------------------------------------------------------------------------

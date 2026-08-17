@@ -11,7 +11,7 @@ const BACKEND_URL = "http://localhost:5000"; // TODO: swap to prod URL when depl
 // install shares ONE subscription -- there's no way to tell who's actually
 // paid. Swap this back to popup-entered per-user keys (the apiKey ||
 // fallback below reverts to that automatically) before public launch.
-const DEFAULT_API_KEY = "paste-your-key-here";
+const DEFAULT_API_KEY = "74e507559890c937bea8b7dbfc54679c383abe0d04c95ae5";
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "ANALYZE_TEXT") {

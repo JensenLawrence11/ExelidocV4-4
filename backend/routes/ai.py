@@ -5,11 +5,35 @@ never touch the AI provider directly -- the API key stays server-side.
 """
 from flask import Blueprint, request, jsonify, g
 
-from services.ai_service import analyze_text, analyze_spreadsheet_range
+from services.ai_service import analyze_text, analyze_spreadsheet_range, generate_text
 from services.user_service import log_ai_usage
 from utils.auth_decorator import require_subscription
 
 ai_bp = Blueprint("ai", __name__)
+
+
+@ai_bp.post("/generate-text")
+@require_subscription
+def generate_text_route():
+    """
+    Used by: extension popup, Office add-in "generate" panel.
+    Header: X-Api-Key: <user's key>
+    Body: { "prompt": "write a short email asking for a meeting reschedule" }
+    Returns: { "generated": "..." }
+    """
+    data = request.get_json(silent=True) or {}
+    prompt = data.get("prompt", "")
+    if not prompt.strip():
+        return jsonify(error="No prompt provided"), 400
+
+    result = generate_text(prompt)
+    try:
+        log_ai_usage(g.user["id"], "generate-text")
+    except Exception as e:
+        print(f"generate_text_route: log_ai_usage failed -- {e}")
+    result["remaining_requests"] = g.remaining_requests
+    result["tier"] = g.user.get("tier")
+    return jsonify(result)
 
 
 @ai_bp.post("/analyze-text")
@@ -30,8 +54,6 @@ def analyze_text_route():
     try:
         log_ai_usage(g.user["id"], "analyze-text")
     except Exception as e:
-        # Logging is non-critical -- don't fail a successful correction
-        # just because the analytics insert had a problem.
         print(f"analyze_text_route: log_ai_usage failed -- {e}")
     result["remaining_requests"] = g.remaining_requests
     result["tier"] = g.user.get("tier")
