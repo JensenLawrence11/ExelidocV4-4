@@ -28,7 +28,7 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://docs.google.com/document/*"],
+      "matches": ["https://docs.google.com/*"],
       "js": ["content-scripts/gdocs.js"],
       "css": ["content-scripts/exelidoc-panel.css"],
       "run_at": "document_idle"
