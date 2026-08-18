@@ -3,11 +3,30 @@ let activeBox = null;
 let preEditSnapshot = null;
 let docsLauncher = null;
 
+function isLikelyGoogleDocsEditor(el) {
+  if (!el || !(el instanceof HTMLElement)) return false;
+
+  const className = el.className || "";
+  const role = el.getAttribute("role") || "";
+  const ariaLabel = (el.getAttribute("aria-label") || "").toLowerCase();
+  const isContentEditable = el.isContentEditable || el.getAttribute("contenteditable") === "true";
+
+  return isContentEditable && (
+    className.includes("kix-appview-editor") ||
+    className.includes("kix-page") ||
+    role.includes("textbox") ||
+    ariaLabel.includes("document") ||
+    ariaLabel.includes("text")
+  );
+}
+
 function findFirstEditableElement(root) {
   if (!root) return null;
 
   const selectors = [
     '.kix-appview-editor[contenteditable="true"]',
+    'div[role="textbox"][aria-multiline="true"]',
+    'div[role="textbox"][contenteditable="true"]',
     '[role="textbox"][contenteditable="true"]',
     'div[contenteditable="true"]',
     '[contenteditable="true"]',
@@ -15,17 +34,12 @@ function findFirstEditableElement(root) {
 
   for (const selector of selectors) {
     const candidates = Array.from(root.querySelectorAll(selector));
-    const visible = candidates.find((el) => {
-      const style = window.getComputedStyle ? window.getComputedStyle(el) : null;
-      if (!style) return true;
-      const hidden = style.display === 'none' || style.visibility === 'hidden';
-      return !hidden;
-    });
+    const visible = candidates.find((el) => isLikelyGoogleDocsEditor(el));
     if (visible) return visible;
   }
 
   const active = root.activeElement;
-  if (active && active.isContentEditable) return active;
+  if (active && active.isContentEditable && isLikelyGoogleDocsEditor(active)) return active;
 
   return null;
 }
@@ -85,6 +99,16 @@ function captureComposeSnapshot(box) {
 function insertTextAtSelection(box, value) {
   const doc = box.ownerDocument || document;
   const selection = doc.getSelection && doc.getSelection();
+
+  if (selection) {
+    if (selection.rangeCount === 0 || !box.contains(selection.anchorNode) && !box.contains(selection.focusNode)) {
+      const range = doc.createRange();
+      range.selectNodeContents(box);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+  }
 
   if (selection && selection.rangeCount) {
     const range = selection.getRangeAt(0);
@@ -294,16 +318,12 @@ function createExelidocPanel() {
     statusEl.textContent = "Thinking...";
     submitEl.disabled = true;
 
-    chrome.runtime.sendMessage(
-      { type: "ANALYZE_TEXT", text, instruction },
-      (response) => {
+    sendDocsAnalyzeRequest({
+      text,
+      instruction,
+      onSuccess: (response) => {
         submitEl.disabled = false;
         console.log("Exelidoc Docs: background response", response);
-        if (chrome.runtime.lastError) {
-          console.log("Exelidoc Docs: runtime error", chrome.runtime.lastError.message);
-          statusEl.textContent = "Extension reloaded — refresh this page.";
-          return;
-        }
         if (!response || !response.ok) {
           statusEl.textContent = `Error: ${response ? response.error : "no response"}`;
           return;
@@ -326,8 +346,13 @@ function createExelidocPanel() {
         preEditSnapshot = captureComposeSnapshot(activeBox);
         setComposeText(activeBox, corrected);
         undoEl.hidden = false;
-      }
-    );
+      },
+      onError: (error) => {
+        submitEl.disabled = false;
+        console.log("Exelidoc Docs: runtime error", error);
+        statusEl.textContent = error || "Extension reloaded — refresh this page.";
+      },
+    });
   });
 
   undoEl.addEventListener("click", () => {
@@ -348,6 +373,38 @@ function resetPanelState(panel) {
   panel.querySelector(".exelidoc-status").textContent = "";
   panel.querySelector(".exelidoc-undo").hidden = true;
   panel.dataset.userMoved = "false";
+}
+
+function sendDocsAnalyzeRequest({ text, instruction, onSuccess, onError }) {
+  try {
+    if (!chrome || !chrome.runtime || !chrome.runtime.id) {
+      onError("Extension context invalidated — reload the extension and this page.");
+      return;
+    }
+
+    chrome.runtime.sendMessage(
+      { type: "ANALYZE_TEXT", text, instruction },
+      (response) => {
+        try {
+          if (chrome.runtime.lastError) {
+            const message = chrome.runtime.lastError.message || "";
+            onError(
+              message.includes("Extension context invalidated")
+                ? "Extension was reloaded — refresh this page and try again."
+                : message
+            );
+            return;
+          }
+
+          onSuccess(response);
+        } catch (err) {
+          onError(String(err));
+        }
+      }
+    );
+  } catch (err) {
+    onError("Extension context invalidated — reload the extension and this page.");
+  }
 }
 
 function initDocsPanel() {
