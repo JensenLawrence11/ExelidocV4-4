@@ -1,6 +1,7 @@
 let activePanel = null;
 let activeBox = null;
 let preEditSnapshot = null;
+let docsLauncher = null;
 
 function getDocsEditor() {
   return document.querySelector('.kix-appview-editor[contenteditable="true"], [role="textbox"][contenteditable="true"]');
@@ -45,6 +46,26 @@ function restoreComposeSnapshot(box, snapshot) {
   box.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function ensureDocsLauncher() {
+  if (docsLauncher) return;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "exelidoc-docs-launcher";
+  button.textContent = "Exelidoc";
+  button.setAttribute("aria-label", "Open Exelidoc panel");
+  button.addEventListener("click", () => {
+    const editor = getDocsEditor();
+    if (!editor) return;
+    if (!activePanel) activePanel = createExelidocPanel();
+    setActiveBox(editor);
+    activePanel.style.display = "flex";
+  });
+
+  document.body.appendChild(button);
+  docsLauncher = button;
+}
+
 function setActiveBox(box) {
   const sameBox = activeBox === box;
   activeBox = box;
@@ -77,10 +98,7 @@ function createExelidocPanel() {
   const panel = document.createElement("div");
   panel.className = "exelidoc-panel docs-mode";
   panel.innerHTML = `
-    <div class="exelidoc-panel-header">
-      <span>Exelidoc</span>
-      <button type="button" class="exelidoc-close" aria-label="Close Exelidoc panel">×</button>
-    </div>
+    <div class="exelidoc-panel-header">Exelidoc</div>
     <textarea class="exelidoc-query" placeholder="e.g. write a section, rewrite this, make it more concise"></textarea>
     <button class="exelidoc-submit">Ask</button>
     <button class="exelidoc-undo" hidden>Undo</button>
@@ -91,14 +109,7 @@ function createExelidocPanel() {
   const submitEl = panel.querySelector(".exelidoc-submit");
   const undoEl = panel.querySelector(".exelidoc-undo");
   const statusEl = panel.querySelector(".exelidoc-status");
-  const closeEl = panel.querySelector(".exelidoc-close");
   const panelHeader = panel.querySelector(".exelidoc-panel-header");
-
-  closeEl.addEventListener("click", () => {
-    if (activePanel) {
-      activePanel.style.display = "none";
-    }
-  });
 
   let dragState = null;
   panelHeader.addEventListener("pointerdown", (event) => {
@@ -196,20 +207,16 @@ function resetPanelState(panel) {
 function initDocsPanel() {
   const editor = getDocsEditor();
   if (!editor) return;
-
-  if (!activePanel) {
-    activePanel = createExelidocPanel();
-  }
-
-  setActiveBox(editor);
-  activePanel.style.display = "flex";
+  ensureDocsLauncher();
   editor.addEventListener("focus", () => setActiveBox(editor));
 }
 
 const docsObserver = new MutationObserver(() => {
-  const editor = getDocsEditor();
-  if (editor && !activeBox) {
-    initDocsPanel();
+  if (!docsLauncher) {
+    const editor = getDocsEditor();
+    if (editor) {
+      initDocsPanel();
+    }
   }
 });
 docsObserver.observe(document.body, { childList: true, subtree: true });
