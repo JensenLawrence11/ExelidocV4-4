@@ -90,11 +90,24 @@ function createExelidocPanel() {
           statusEl.textContent = `Error: ${response ? response.error : "no response"}`;
           return;
         }
+        if (response.data && response.data.error) {
+          statusEl.textContent = `Error: ${response.data.error}`;
+          return;
+        }
         if (!activeBox) return; // user switched away while waiting
 
         statusEl.textContent = "";
-        const corrected = response.data.corrected;
+        const suggestions = Array.isArray(response.data.suggestions) ? response.data.suggestions : [];
+        const corrected = response.data.corrected || (suggestions[0] && suggestions[0].revised) || text;
+
         if (!corrected || corrected === text) {
+          if (suggestions.length) {
+            const preview = suggestions[0].revised || text;
+            resultTextEl.textContent = preview;
+            resultEl.hidden = false;
+            statusEl.textContent = "Suggested rewrite ready.";
+            return;
+          }
           statusEl.textContent = "No changes suggested.";
           return;
         }

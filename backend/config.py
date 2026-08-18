@@ -18,7 +18,7 @@ class Config:
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
     OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-    OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/free")
+    OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
     OPENROUTER_SITE_URL = os.environ.get("OPENROUTER_SITE_URL", "")
     OPENROUTER_SITE_NAME = os.environ.get("OPENROUTER_SITE_NAME", "")
 

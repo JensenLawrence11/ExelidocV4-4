@@ -48,6 +48,7 @@ def analyze_text_route():
     data = request.get_json(silent=True) or {}
     text = data.get("text", "")
     instruction = data.get("instruction")
+    print(f"DEBUG instruction received: {instruction!r}")
     if not text.strip():
         return jsonify(error="No text provided"), 400
 

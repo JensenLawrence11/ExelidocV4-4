@@ -34,9 +34,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }),
       })
         .then(async (res) => {
+          let data = {};
+          const raw = await res.text();
+          if (raw) {
+            try {
+              data = JSON.parse(raw);
+            } catch (e) {
+              data = { error: raw };
+            }
+          }
+
           if (res.status === 401) return sendResponse({ ok: false, error: "invalid_api_key" });
           if (res.status === 402) return sendResponse({ ok: false, error: "subscription_inactive" });
-          const data = await res.json();
+          if (res.status === 429) return sendResponse({ ok: false, error: data.error || "monthly_limit_reached" });
+          if (!res.ok) return sendResponse({ ok: false, error: data.error || "request_failed" });
+
           sendResponse({ ok: true, data });
         })
         .catch((err) => sendResponse({ ok: false, error: String(err) }));
