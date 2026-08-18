@@ -66,21 +66,6 @@
   cursor: default;
 }
 
-.exelidoc-result {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-top: 1px solid #eee;
-  padding-top: 10px;
-}
-
-.exelidoc-result-text {
-  color: #202124;
-  white-space: pre-wrap;
-  max-height: 160px;
-  overflow-y: auto;
-}
-
 .exelidoc-undo {
   align-self: flex-start;
   margin-right: 6px;

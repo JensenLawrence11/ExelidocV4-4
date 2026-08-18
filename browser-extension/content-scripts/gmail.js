@@ -52,19 +52,44 @@ function createExelidocPanel() {
     <div class="exelidoc-panel-header">Exelidoc</div>
     <textarea class="exelidoc-query" placeholder="e.g. make this more formal, fix grammar, shorten it... or write a new email from scratch"></textarea>
     <button class="exelidoc-submit">Ask</button>
-    <div class="exelidoc-result" hidden>
-      <div class="exelidoc-result-text"></div>
-      <button class="exelidoc-undo">Undo</button>
-    </div>
+    <button class="exelidoc-undo" hidden>Undo</button>
     <div class="exelidoc-status"></div>
   `;
 
   const queryEl = panel.querySelector(".exelidoc-query");
   const submitEl = panel.querySelector(".exelidoc-submit");
-  const resultEl = panel.querySelector(".exelidoc-result");
-  const resultTextEl = panel.querySelector(".exelidoc-result-text");
   const undoEl = panel.querySelector(".exelidoc-undo");
   const statusEl = panel.querySelector(".exelidoc-status");
+  const panelHeader = panel.querySelector(".exelidoc-panel-header");
+
+  let dragState = null;
+  panelHeader.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button, textarea")) return;
+    dragState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      left: parseFloat(panel.style.left || "0") || 0,
+      top: parseFloat(panel.style.top || "0") || 0,
+    };
+    panel.dataset.userMoved = "true";
+    panel.setPointerCapture?.(event.pointerId);
+  });
+
+  panel.addEventListener("pointermove", (event) => {
+    if (!dragState) return;
+    const dx = event.clientX - dragState.startX;
+    const dy = event.clientY - dragState.startY;
+    panel.style.left = `${dragState.left + dx}px`;
+    panel.style.top = `${dragState.top + dy}px`;
+  });
+
+  panel.addEventListener("pointerup", () => {
+    dragState = null;
+  });
+
+  panel.addEventListener("pointerleave", () => {
+    dragState = null;
+  });
 
   submitEl.addEventListener("click", () => {
     console.log("Exelidoc: Ask clicked", { activeBox, query: queryEl.value });
@@ -99,34 +124,32 @@ function createExelidocPanel() {
         const corrected = response.data.corrected || (suggestions[0] && suggestions[0].revised) || text;
 
         if (!corrected || corrected === text) {
-          if (suggestions.length) {
-            const preview = suggestions[0].revised || text;
-            resultTextEl.textContent = preview;
-            resultEl.hidden = false;
-            statusEl.textContent = "Suggested rewrite ready.";
-            return;
-          }
           statusEl.textContent = "No changes suggested.";
           return;
         }
 
-        preEditSnapshot = activeBox.innerHTML;
+        preEditSnapshot = {
+          html: activeBox.innerHTML,
+          text: activeBox.innerText || "",
+        };
         applyEditToBox(activeBox, corrected);
-
-        resultTextEl.textContent = corrected;
-        resultEl.hidden = false;
+        undoEl.hidden = false;
       }
     );
   });
 
   undoEl.addEventListener("click", () => {
-    if (activeBox && preEditSnapshot !== null) {
+    if (activeBox && preEditSnapshot) {
       activeBox.focus();
-      activeBox.innerHTML = preEditSnapshot;
+      if (preEditSnapshot.html !== undefined) {
+        activeBox.innerHTML = preEditSnapshot.html;
+      } else {
+        activeBox.textContent = preEditSnapshot.text || "";
+      }
       preEditSnapshot = null;
+      undoEl.hidden = true;
+      statusEl.textContent = "Restored previous draft.";
     }
-    resultEl.hidden = true;
-    statusEl.textContent = "";
   });
 
   document.body.appendChild(panel);
@@ -135,8 +158,9 @@ function createExelidocPanel() {
 
 function resetPanelState(panel) {
   panel.querySelector(".exelidoc-query").value = "";
-  panel.querySelector(".exelidoc-result").hidden = true;
   panel.querySelector(".exelidoc-status").textContent = "";
+  panel.querySelector(".exelidoc-undo").hidden = true;
+  panel.dataset.userMoved = "false";
 }
 
 function applyEditToBox(box, corrected) {
@@ -150,13 +174,14 @@ function applyEditToBox(box, corrected) {
     return;
   }
 
+  box.innerHTML = "";
   document.execCommand("insertText", false, corrected);
 }
 
 const observer = new MutationObserver(() => {
   findComposeBoxes().forEach(attachToComposeBox);
 
-  if (activeBox && activePanel && document.body.contains(activeBox)) {
+  if (activeBox && activePanel && document.body.contains(activeBox) && activePanel.dataset.userMoved !== "true") {
     positionPanel(activePanel, activeBox);
   }
 });
