@@ -3,41 +3,18 @@ let activeBox = null;
 let preEditSnapshot = null;
 let docsLauncher = null;
 
-function findFirstEditableElement(root) {
-  if (!root) return null;
-
-  const selectors = [
-    '.kix-appview-editor[contenteditable="true"]',
-    '[role="textbox"][contenteditable="true"]',
-    'div[contenteditable="true"]',
-    '[contenteditable="true"]',
-  ];
-
-  for (const selector of selectors) {
-    const el = root.querySelector(selector);
-    if (el) return el;
-  }
-
-  const active = root.activeElement;
-  if (active && active.isContentEditable) return active;
-
-  return null;
-}
-
 function getDocsEditor() {
-  const directEditor = findFirstEditableElement(document);
+  const directEditor = document.querySelector('.kix-appview-editor[contenteditable="true"], [role="textbox"][contenteditable="true"], div[contenteditable="true"]');
   if (directEditor) return directEditor;
 
-  const frames = Array.from(document.querySelectorAll('iframe'));
-  for (const frame of frames) {
-    try {
-      const doc = frame.contentDocument || frame.contentWindow?.document;
-      const found = doc ? findFirstEditableElement(doc) : null;
-      if (found) return found;
-    } catch (err) {
-      // cross-origin frames cannot be read; ignore and continue
-    }
+  const iframe = document.querySelector('iframe.docs-texteventtarget-iframe, iframe[aria-label="Document content"], iframe[id*="docs-texteventtarget"]');
+  if (iframe && iframe.contentDocument) {
+    const iframeEditor = iframe.contentDocument.querySelector('.kix-appview-editor[contenteditable="true"], [role="textbox"][contenteditable="true"], div[contenteditable="true"]');
+    if (iframeEditor) return iframeEditor;
   }
+
+  const active = document.activeElement;
+  if (active && active.isContentEditable) return active;
 
   return null;
 }
@@ -194,10 +171,7 @@ function createExelidocPanel() {
     if (editor) {
       activeBox = editor;
     }
-    if (!activeBox) {
-      statusEl.textContent = "No editable doc found yet.";
-      return;
-    }
+    if (!activeBox) return;
 
     const instruction = queryEl.value.trim();
     const text = (activeBox.innerText || "").trim();
