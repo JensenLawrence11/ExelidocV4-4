@@ -1,32 +1,9 @@
 let activePanel = null;
 let activeBox = null;
 let preEditSnapshot = null;
-let docsLauncher = null;
 
 function getDocsEditor() {
-  return document.querySelector('.kix-appview-editor[contenteditable="true"], [role="textbox"][contenteditable="true"], div[contenteditable="true"], .docs-texteventtarget-iframe');
-}
-
-function ensureDocsLauncher() {
-  if (docsLauncher || !document.body) return;
-
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "exelidoc-docs-launcher";
-  button.textContent = "Exelidoc";
-  button.setAttribute("aria-label", "Open Exelidoc panel");
-  button.addEventListener("click", () => {
-    const editor = getDocsEditor();
-    if (!activePanel) activePanel = createExelidocPanel();
-    if (editor) {
-      setActiveBox(editor);
-    } else {
-      activePanel.style.display = "flex";
-    }
-  });
-
-  document.body.appendChild(button);
-  docsLauncher = button;
+  return document.querySelector('.kix-appview-editor[contenteditable="true"], [role="textbox"][contenteditable="true"]');
 }
 
 function captureComposeSnapshot(box) {
@@ -94,7 +71,6 @@ function positionPanel(panel, box) {
   panel.style.top = "72px";
   panel.style.right = "22px";
   panel.style.left = "auto";
-  panel.style.zIndex = "2147483647";
 }
 
 function createExelidocPanel() {
@@ -218,16 +194,8 @@ function resetPanelState(panel) {
 }
 
 function initDocsPanel() {
-  ensureDocsLauncher();
-
   const editor = getDocsEditor();
-  if (!editor) {
-    if (!activePanel) {
-      activePanel = createExelidocPanel();
-    }
-    activePanel.style.display = "flex";
-    return;
-  }
+  if (!editor) return;
 
   if (!activePanel) {
     activePanel = createExelidocPanel();
@@ -239,18 +207,13 @@ function initDocsPanel() {
 }
 
 const docsObserver = new MutationObserver(() => {
-  if (!docsLauncher) {
-    initDocsPanel();
-    return;
-  }
-
   const editor = getDocsEditor();
   if (editor && !activeBox) {
-    setActiveBox(editor);
+    initDocsPanel();
   }
 });
 docsObserver.observe(document.body, { childList: true, subtree: true });
 
-if (document.body) {
+if (getDocsEditor()) {
   initDocsPanel();
 }

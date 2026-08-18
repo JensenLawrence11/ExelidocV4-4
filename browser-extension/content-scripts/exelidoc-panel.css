@@ -28,27 +28,6 @@
   max-width: calc(100vw - 28px);
   max-height: calc(100vh - 92px);
   overflow: hidden;
-  z-index: 2147483647;
-}
-
-.exelidoc-docs-launcher {
-  position: fixed;
-  top: 18px;
-  right: 20px;
-  z-index: 2147483647;
-  border: 1px solid rgba(26, 115, 232, 0.2);
-  background: #fff;
-  color: #1a73e8;
-  border-radius: 999px;
-  padding: 8px 14px;
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(60, 64, 67, 0.2);
-}
-
-.exelidoc-docs-launcher:hover {
-  background: #f8fbff;
 }
 
 .exelidoc-panel * {
