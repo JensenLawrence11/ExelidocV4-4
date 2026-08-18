@@ -4,34 +4,20 @@ let preEditSnapshot = null;
 let docsLauncher = null;
 
 function isLikelyGoogleDocsEditor(el) {
-  if (!el) return false;
+  if (!el || !(el instanceof HTMLElement)) return false;
 
-  const maybeElement = el instanceof Element ? el : null;
-  if (!maybeElement) return false;
+  const className = el.className || "";
+  const role = el.getAttribute("role") || "";
+  const ariaLabel = (el.getAttribute("aria-label") || "").toLowerCase();
+  const isContentEditable = el.isContentEditable || el.getAttribute("contenteditable") === "true";
 
-  const className = (maybeElement.className || "").toString();
-  const role = maybeElement.getAttribute("role") || "";
-  const ariaLabel = (maybeElement.getAttribute("aria-label") || "").toLowerCase();
-  const text = (maybeElement.textContent || "").trim();
-  const isEditable = maybeElement.isContentEditable || maybeElement.getAttribute("contenteditable") === "true";
-
-  if (!isEditable) return false;
-
-  const docsHints = [
-    "kix-appview-editor",
-    "kix-page",
-    "docs-texteventtarget-iframe",
-    "docs-editor-container",
-    "textbox",
-    "document",
-    "text",
-  ];
-
-  return docsHints.some((hint) => {
-    const match = className.includes(hint) || role.includes(hint) || ariaLabel.includes(hint);
-    if (match) return true;
-    return text.length > 0 && (role.includes("textbox") || ariaLabel.includes("document"));
-  });
+  return isContentEditable && (
+    className.includes("kix-appview-editor") ||
+    className.includes("kix-page") ||
+    role.includes("textbox") ||
+    ariaLabel.includes("document") ||
+    ariaLabel.includes("text")
+  );
 }
 
 function findFirstEditableElement(root) {
@@ -39,44 +25,21 @@ function findFirstEditableElement(root) {
 
   const selectors = [
     '.kix-appview-editor[contenteditable="true"]',
-    '.kix-appview-editor',
     'div[role="textbox"][aria-multiline="true"]',
     'div[role="textbox"][contenteditable="true"]',
     '[role="textbox"][contenteditable="true"]',
-    '[role="textbox"]',
-    '[contenteditable="true"]',
     'div[contenteditable="true"]',
-    'div[aria-label*="Document"]',
-    'div[aria-label*="document"]',
+    '[contenteditable="true"]',
   ];
 
-  const queue = [root];
-  const visited = new Set();
-
-  while (queue.length) {
-    const current = queue.shift();
-    if (!current || visited.has(current)) continue;
-    visited.add(current);
-
-    if (current.querySelectorAll) {
-      for (const selector of selectors) {
-        const candidates = Array.from(current.querySelectorAll(selector));
-        const docCandidate = candidates.find((el) => isLikelyGoogleDocsEditor(el));
-        if (docCandidate) return docCandidate;
-      }
-    }
-
-    if (current.shadowRoot) {
-      queue.push(current.shadowRoot);
-    }
-
-    if (current.activeElement && current.activeElement !== current) {
-      queue.push(current.activeElement);
-    }
+  for (const selector of selectors) {
+    const candidates = Array.from(root.querySelectorAll(selector));
+    const visible = candidates.find((el) => isLikelyGoogleDocsEditor(el));
+    if (visible) return visible;
   }
 
   const active = root.activeElement;
-  if (active && isLikelyGoogleDocsEditor(active)) return active;
+  if (active && active.isContentEditable && isLikelyGoogleDocsEditor(active)) return active;
 
   return null;
 }
@@ -85,7 +48,7 @@ function getDocsEditor() {
   const directEditor = findFirstEditableElement(document);
   if (directEditor) return directEditor;
 
-  const frames = Array.from(document.querySelectorAll('iframe, frame'));
+  const frames = Array.from(document.querySelectorAll('iframe'));
   for (const frame of frames) {
     try {
       const doc = frame.contentDocument || frame.contentWindow?.document;
@@ -96,13 +59,8 @@ function getDocsEditor() {
     }
   }
 
-  const rootNodes = [document, document.body];
-  for (const rootNode of rootNodes) {
-    if (!rootNode) continue;
-    const all = Array.from(rootNode.querySelectorAll('[contenteditable="true"], [role="textbox"], .kix-appview-editor'));
-    const match = all.find((el) => isLikelyGoogleDocsEditor(el));
-    if (match) return match;
-  }
+  const allContentEditable = document.querySelectorAll('[contenteditable="true"]');
+  if (allContentEditable.length) return allContentEditable[0];
 
   return null;
 }
@@ -458,7 +416,6 @@ function initDocsPanel() {
       activePanel = createExelidocPanel();
     }
     activePanel.style.display = "flex";
-    statusElText("Waiting for the Google Docs editor to load...");
     return;
   }
 
@@ -475,12 +432,6 @@ function initDocsPanel() {
   }
 }
 
-function statusElText(message) {
-  if (!activePanel) return;
-  const statusEl = activePanel.querySelector(".exelidoc-status");
-  if (statusEl) statusEl.textContent = message;
-}
-
 const docsObserver = new MutationObserver(() => {
   if (!docsLauncher) {
     initDocsPanel();
@@ -488,26 +439,11 @@ const docsObserver = new MutationObserver(() => {
   }
 
   const editor = getDocsEditor();
-  if (editor) {
-    if (!activeBox || activeBox !== editor) {
-      setActiveBox(editor);
-    }
-  } else if (activePanel && activePanel.style.display !== "none") {
-    statusElText("Waiting for the Google Docs editor to load...");
+  if (editor && !activeBox) {
+    setActiveBox(editor);
   }
 });
 docsObserver.observe(document.body, { childList: true, subtree: true });
-
-document.addEventListener("focusin", (event) => {
-  const target = event.target;
-  if (!target || !(target instanceof Element)) return;
-
-  const docEditor = target.closest('[contenteditable="true"], [role="textbox"], .kix-appview-editor');
-  if (docEditor && isLikelyGoogleDocsEditor(docEditor)) {
-    activeBox = docEditor;
-    setActiveBox(docEditor);
-  }
-});
 
 if (document.body) {
   initDocsPanel();
