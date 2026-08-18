@@ -76,35 +76,12 @@ function captureComposeSnapshot(box) {
   };
 }
 
-function insertTextAtSelection(box, value) {
-  const doc = box.ownerDocument || document;
-  const selection = doc.getSelection && doc.getSelection();
-
-  if (selection && selection.rangeCount) {
-    const range = selection.getRangeAt(0);
-    const textNode = doc.createTextNode(value || "");
-    range.deleteContents();
-    range.insertNode(textNode);
-    range.setStartAfter(textNode);
-    range.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(range);
-    return true;
-  }
-
-  return false;
-}
-
 function setComposeText(box, value) {
   if (!box) return;
 
   box.focus();
-
-  const inserted = insertTextAtSelection(box, value || "");
-  if (!inserted) {
-    box.innerHTML = "";
-    box.textContent = value || "";
-  }
+  box.innerHTML = "";
+  box.textContent = value || "";
 
   if (typeof InputEvent !== "undefined") {
     box.dispatchEvent(new InputEvent("input", { bubbles: true, data: value || "" }));
