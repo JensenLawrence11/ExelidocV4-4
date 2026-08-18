@@ -2,6 +2,41 @@ let activePanel = null;
 let activeBox = null;
 let preEditSnapshot = null;
 
+function captureComposeSnapshot(box) {
+  if (!box) return null;
+
+  return {
+    html: box.innerHTML,
+    text: box.textContent || box.innerText || "",
+  };
+}
+
+function setComposeText(box, value) {
+  if (!box) return;
+
+  box.focus();
+  box.innerHTML = "";
+  box.textContent = value || "";
+
+  box.dispatchEvent(new InputEvent("input", { bubbles: true, data: value || "" }));
+  box.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function restoreComposeSnapshot(box, snapshot) {
+  if (!box || !snapshot) return;
+
+  box.focus();
+
+  if (snapshot.html !== undefined && snapshot.html !== null) {
+    box.innerHTML = snapshot.html;
+  } else {
+    box.textContent = snapshot.text || "";
+  }
+
+  box.dispatchEvent(new InputEvent("input", { bubbles: true, data: snapshot.text || "" }));
+  box.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 function findComposeBoxes() {
   return document.querySelectorAll('div[contenteditable="true"][role="textbox"]');
 }
@@ -24,12 +59,17 @@ function attachToComposeBox(box) {
 }
 
 function setActiveBox(box) {
+  const sameBox = activeBox === box;
   activeBox = box;
-  preEditSnapshot = null;
 
   if (!box) {
+    preEditSnapshot = null;
     if (activePanel) activePanel.style.display = "none";
     return;
+  }
+
+  if (!sameBox) {
+    preEditSnapshot = null;
   }
 
   if (!activePanel) activePanel = createExelidocPanel();
@@ -128,11 +168,8 @@ function createExelidocPanel() {
           return;
         }
 
-        preEditSnapshot = {
-          html: activeBox.innerHTML,
-          text: activeBox.innerText || "",
-        };
-        applyEditToBox(activeBox, corrected);
+        preEditSnapshot = captureComposeSnapshot(activeBox);
+        setComposeText(activeBox, corrected);
         undoEl.hidden = false;
       }
     );
@@ -140,12 +177,7 @@ function createExelidocPanel() {
 
   undoEl.addEventListener("click", () => {
     if (activeBox && preEditSnapshot) {
-      activeBox.focus();
-      if (preEditSnapshot.html !== undefined) {
-        activeBox.innerHTML = preEditSnapshot.html;
-      } else {
-        activeBox.textContent = preEditSnapshot.text || "";
-      }
+      restoreComposeSnapshot(activeBox, preEditSnapshot);
       preEditSnapshot = null;
       undoEl.hidden = true;
       statusEl.textContent = "Restored previous draft.";
@@ -164,18 +196,7 @@ function resetPanelState(panel) {
 }
 
 function applyEditToBox(box, corrected) {
-  if (!box) return;
-  box.focus();
-
-  const existingText = (box.innerText || "").trim();
-  if (existingText) {
-    document.execCommand("selectAll", false, null);
-    document.execCommand("insertText", false, corrected);
-    return;
-  }
-
-  box.innerHTML = "";
-  document.execCommand("insertText", false, corrected);
+  setComposeText(box, corrected);
 }
 
 const observer = new MutationObserver(() => {
@@ -198,4 +219,3 @@ document.addEventListener("focusin", (event) => {
     setActiveBox(null);
   }
 });
-observer.observe(document.body, { childList: true, subtree: true });
