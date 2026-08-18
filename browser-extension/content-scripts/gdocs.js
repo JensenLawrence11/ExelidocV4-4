@@ -39,6 +39,9 @@ function getDocsEditor() {
     }
   }
 
+  const allContentEditable = document.querySelectorAll('[contenteditable="true"]');
+  if (allContentEditable.length) return allContentEditable[0];
+
   return null;
 }
 
@@ -190,12 +193,19 @@ function createExelidocPanel() {
   });
 
   submitEl.addEventListener("click", () => {
+    console.log("Exelidoc Docs: click", {
+      activeBox,
+      docEditor: getDocsEditor(),
+      query: queryEl.value,
+    });
+
     const editor = getDocsEditor();
     if (editor) {
       activeBox = editor;
     }
     if (!activeBox) {
       statusEl.textContent = "No editable doc found yet.";
+      console.log("Exelidoc Docs: no editable target found");
       return;
     }
 
@@ -203,6 +213,7 @@ function createExelidocPanel() {
     const text = (activeBox.innerText || "").trim();
     if (!instruction) return;
 
+    console.log("Exelidoc Docs: sending request", { text, instruction });
     statusEl.textContent = "Thinking...";
     submitEl.disabled = true;
 
@@ -210,7 +221,9 @@ function createExelidocPanel() {
       { type: "ANALYZE_TEXT", text, instruction },
       (response) => {
         submitEl.disabled = false;
+        console.log("Exelidoc Docs: background response", response);
         if (chrome.runtime.lastError) {
+          console.log("Exelidoc Docs: runtime error", chrome.runtime.lastError.message);
           statusEl.textContent = "Extension reloaded — refresh this page.";
           return;
         }
