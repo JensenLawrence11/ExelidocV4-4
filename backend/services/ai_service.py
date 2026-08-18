@@ -73,6 +73,15 @@ TEXT_SYSTEM_PROMPT = (
 
 def analyze_text(text: str, instruction: str | None = None) -> dict:
     try:
+        if not text or not text.strip():
+            if not instruction or not instruction.strip():
+                return {"corrected": "", "suggestions": []}
+            generated = generate_text(instruction)
+            return {
+                "corrected": generated.get("generated", ""),
+                "suggestions": [],
+            }
+
         user_content = (
             f"Instruction: {instruction}\n\nText:\n{text}"
             if instruction

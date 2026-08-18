@@ -50,11 +50,10 @@ function createExelidocPanel() {
   panel.className = "exelidoc-panel";
   panel.innerHTML = `
     <div class="exelidoc-panel-header">Exelidoc</div>
-    <textarea class="exelidoc-query" placeholder="e.g. make this more formal, fix grammar, shorten it..."></textarea>
+    <textarea class="exelidoc-query" placeholder="e.g. make this more formal, fix grammar, shorten it... or write a new email from scratch"></textarea>
     <button class="exelidoc-submit">Ask</button>
     <div class="exelidoc-result" hidden>
       <div class="exelidoc-result-text"></div>
-      <button class="exelidoc-keep">Keep</button>
       <button class="exelidoc-undo">Undo</button>
     </div>
     <div class="exelidoc-status"></div>
@@ -64,7 +63,6 @@ function createExelidocPanel() {
   const submitEl = panel.querySelector(".exelidoc-submit");
   const resultEl = panel.querySelector(".exelidoc-result");
   const resultTextEl = panel.querySelector(".exelidoc-result-text");
-  const keepEl = panel.querySelector(".exelidoc-keep");
   const undoEl = panel.querySelector(".exelidoc-undo");
   const statusEl = panel.querySelector(".exelidoc-status");
 
@@ -72,8 +70,8 @@ function createExelidocPanel() {
     console.log("Exelidoc: Ask clicked", { activeBox, query: queryEl.value });
     if (!activeBox) return;
     const instruction = queryEl.value.trim();
-    const text = activeBox.innerText;
-    if (!instruction || !text.trim()) { console.log("Exelidoc: empty instruction or text", { instruction, text }); return; }
+    const text = (activeBox.innerText || "").trim();
+    if (!instruction) { console.log("Exelidoc: empty instruction", { instruction, text }); return; }
 
     statusEl.textContent = "Thinking...";
     submitEl.disabled = true;
@@ -121,20 +119,14 @@ function createExelidocPanel() {
     );
   });
 
-  keepEl.addEventListener("click", () => {
-    preEditSnapshot = null;
-    resultEl.hidden = true;
-    queryEl.value = "";
-  });
-
   undoEl.addEventListener("click", () => {
     if (activeBox && preEditSnapshot !== null) {
       activeBox.focus();
-      document.execCommand("selectAll", false, null);
-      document.execCommand("insertHTML", false, preEditSnapshot);
+      activeBox.innerHTML = preEditSnapshot;
       preEditSnapshot = null;
     }
     resultEl.hidden = true;
+    statusEl.textContent = "";
   });
 
   document.body.appendChild(panel);
@@ -148,8 +140,16 @@ function resetPanelState(panel) {
 }
 
 function applyEditToBox(box, corrected) {
+  if (!box) return;
   box.focus();
-  document.execCommand("selectAll", false, null);
+
+  const existingText = (box.innerText || "").trim();
+  if (existingText) {
+    document.execCommand("selectAll", false, null);
+    document.execCommand("insertText", false, corrected);
+    return;
+  }
+
   document.execCommand("insertText", false, corrected);
 }
 

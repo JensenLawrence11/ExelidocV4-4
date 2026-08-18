@@ -81,7 +81,6 @@
   overflow-y: auto;
 }
 
-.exelidoc-keep,
 .exelidoc-undo {
   align-self: flex-start;
   margin-right: 6px;
@@ -92,15 +91,6 @@
   background: #f8f9fa;
   font-size: 12px;
   font-weight: 500;
-}
-
-.exelidoc-keep {
-  color: #1a73e8;
-  border-color: #1a73e8;
-}
-
-.exelidoc-keep:hover {
-  background: #e8f0fe;
 }
 
 .exelidoc-undo:hover {
