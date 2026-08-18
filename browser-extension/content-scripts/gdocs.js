@@ -14,14 +14,8 @@ function findFirstEditableElement(root) {
   ];
 
   for (const selector of selectors) {
-    const candidates = Array.from(root.querySelectorAll(selector));
-    const visible = candidates.find((el) => {
-      const style = window.getComputedStyle ? window.getComputedStyle(el) : null;
-      if (!style) return true;
-      const hidden = style.display === 'none' || style.visibility === 'hidden';
-      return !hidden;
-    });
-    if (visible) return visible;
+    const el = root.querySelector(selector);
+    if (el) return el;
   }
 
   const active = root.activeElement;
@@ -101,69 +95,21 @@ function insertTextAtSelection(box, value) {
   return false;
 }
 
-function triggerDocsInputEvents(box, value) {
-  if (!box) return;
-
-  const payload = value || "";
-  box.dispatchEvent(new Event("focus", { bubbles: true }));
-  box.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, inputType: "insertText", data: payload }));
-  box.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: payload }));
-  box.dispatchEvent(new Event("change", { bubbles: true }));
-  box.dispatchEvent(new Event("blur", { bubbles: true }));
-}
-
 function setComposeText(box, value) {
   if (!box) return;
 
-  const editable = box.closest('[contenteditable="true"]') || box;
-  const doc = box.ownerDocument || document;
+  box.focus();
 
-  try {
-    box.focus();
-    const selection = doc.getSelection && doc.getSelection();
-    if (selection && selection.rangeCount) {
-      const range = selection.getRangeAt(0);
-      range.deleteContents();
-      const textNode = doc.createTextNode(value || "");
-      range.insertNode(textNode);
-      range.setStartAfter(textNode);
-      range.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(range);
-      triggerDocsInputEvents(editable, value || "");
-      return;
-    }
-  } catch (err) {
-    // Google Docs keeps its own selection model; fall through to the next strategies.
+  const inserted = insertTextAtSelection(box, value || "");
+  if (!inserted) {
+    box.innerHTML = "";
+    box.textContent = value || "";
   }
 
-  try {
-    if (doc.execCommand) {
-      doc.execCommand("insertText", false, value || "");
-      triggerDocsInputEvents(editable, value || "");
-      return;
-    }
-  } catch (err) {
-    // Some Google Docs pages block execCommand; continue below.
+  if (typeof InputEvent !== "undefined") {
+    box.dispatchEvent(new InputEvent("input", { bubbles: true, data: value || "" }));
   }
-
-  try {
-    const clipboard = new DataTransfer();
-    clipboard.setData("text/plain", value || "");
-    const pasteEvent = new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true });
-    editable.dispatchEvent(pasteEvent);
-    if (!pasteEvent.defaultPrevented) {
-      editable.textContent = value || "";
-    }
-    triggerDocsInputEvents(editable, value || "");
-    return;
-  } catch (err) {
-    // Final fallback: direct DOM replacement.
-  }
-
-  editable.innerHTML = "";
-  editable.textContent = value || "";
-  triggerDocsInputEvents(editable, value || "");
+  box.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 function restoreComposeSnapshot(box, snapshot) {
