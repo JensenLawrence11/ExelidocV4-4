@@ -4,7 +4,19 @@ let preEditSnapshot = null;
 let docsLauncher = null;
 
 function getDocsEditor() {
-  return document.querySelector('.kix-appview-editor[contenteditable="true"], [role="textbox"][contenteditable="true"], div[contenteditable="true"], .docs-texteventtarget-iframe');
+  const directEditor = document.querySelector('.kix-appview-editor[contenteditable="true"], [role="textbox"][contenteditable="true"], div[contenteditable="true"]');
+  if (directEditor) return directEditor;
+
+  const iframe = document.querySelector('iframe.docs-texteventtarget-iframe, iframe[aria-label="Document content"], iframe[id*="docs-texteventtarget"]');
+  if (iframe && iframe.contentDocument) {
+    const iframeEditor = iframe.contentDocument.querySelector('.kix-appview-editor[contenteditable="true"], [role="textbox"][contenteditable="true"], div[contenteditable="true"]');
+    if (iframeEditor) return iframeEditor;
+  }
+
+  const active = document.activeElement;
+  if (active && active.isContentEditable) return active;
+
+  return null;
 }
 
 function ensureDocsLauncher() {
@@ -155,7 +167,12 @@ function createExelidocPanel() {
   });
 
   submitEl.addEventListener("click", () => {
+    const editor = getDocsEditor();
+    if (editor) {
+      activeBox = editor;
+    }
     if (!activeBox) return;
+
     const instruction = queryEl.value.trim();
     const text = (activeBox.innerText || "").trim();
     if (!instruction) return;
@@ -233,9 +250,13 @@ function initDocsPanel() {
     activePanel = createExelidocPanel();
   }
 
+  activeBox = editor;
   setActiveBox(editor);
   activePanel.style.display = "flex";
-  editor.addEventListener("focus", () => setActiveBox(editor));
+
+  if (editor.addEventListener) {
+    editor.addEventListener("focus", () => setActiveBox(editor));
+  }
 }
 
 const docsObserver = new MutationObserver(() => {
